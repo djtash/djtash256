@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Message App</title>
+<style>
+  /* Reset */
+  * {
+    box-sizing: border-box;
+  }
+  body, html {
+    margin: 0; padding: 0; height: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f0f2f5;
+    display: flex; justify-content: center; align-items: center;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  #app {
+    background: white;
+    width: 350px;
+    max-width: 100vw;
+    height: 600px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    background-color: #4267B2;
+    color: white;
+    padding: 15px 20px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-align: center;
+  }
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .message {
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: 18px;
+    font-size: 0.95rem;
+    line-height: 1.3;
+    word-wrap: break-word;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .message.sent {
+    align-self: flex-end;
+    background-color: #DCF8C6;
+    color: #202c33;
+  }
+  .message.received {
+    align-self: flex-start;
+    background-color: #ffffff;
+    color: #050505;
+    border: 1px solid #ddd;
+  }
+  .timestamp {
+    font-size: 0.65rem;
+    color: #999;
+    margin-top: 4px;
+    text-align: right;
+  }
+  footer {
+    padding: 10px 15px;
+    background: #eee;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  #inputMessage {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 20px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s ease-in-out;
+  }
+  #inputMessage:focus {
+    border-color: #4267B2;
+  }
+  #sendBtn {
+    background: #4267B2;
+    border: none;
+    border-radius: 50%;
+    color: white;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background-color 0.3s ease;
+  }
+  #sendBtn:disabled {
+    background: #a3b0db;
+    cursor: not-allowed;
+  }
+  #sendBtn:hover:not(:disabled) {
+    background: #365899;
+  }
+  /* Scrollbar styling */
+  #messages::-webkit-scrollbar {
+    width: 8px;
+  }
+  #messages::-webkit-scrollbar-thumb {
+    background-color: rgba(66,103,178,0.4);
+    border-radius: 8px;
+  }
+  #messages::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  @media (max-width: 400px) {
+    #app {
+      width: 100vw;
+      height: 100vh;
+      border-radius: 0;
+    }
+    header {
+      font-size: 1.1rem;
+      padding: 12px 15px;
+    }
+    footer {
+      padding: 8px 12px;
+    }
+    #sendBtn {
+      width: 36px;
+      height: 36px;
+      font-size: 18px;
+    }
+  }
+</style>
+</head>
+<body>
+  <div id="app" role="main" aria-label="Message application">
+    <header>Message App</header>
+    <main id="messages" aria-live="polite" aria-relevant="additions"></main>
+    <footer>
+      <input type="text" id="inputMessage" aria-label="Type your message here" placeholder="Type a message" autocomplete="off" />
+      <button id="sendBtn" aria-label="Send message" disabled>&#9658;</button>
+    </footer>
+  </div>
+
+<script>
+  (function() {
+    const messagesEl = document.getElementById('messages');
+    const input = document.getElementById('inputMessage');
+    const sendBtn = document.getElementById('sendBtn');
+
+    // Load messages from localStorage or empty array
+    let messages = JSON.parse(localStorage.getItem('messages') || '[]');
+
+    // Helper: format timestamp HH:MM am/pm
+    function formatTimestamp(dateStr) {
+      const date = new Date(dateStr);
+      let hours = date.getHours();
+      const minutes = date.getMinutes();
+      const ampm = hours >= 12 ? 'pm' : 'am';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // hour '0' should be '12'
+      return `${hours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+    }
+
+    // Render messages area
+    function renderMessages() {
+      messagesEl.innerHTML = '';
+      messages.forEach(msg => {
+        const msgEl = document.createElement('div');
+        msgEl.classList.add('message');
+        msgEl.classList.add(msg.sent ? 'sent' : 'received');
+        msgEl.textContent = msg.text;
+
+        const timeEl = document.createElement('div');
+        timeEl.classList.add('timestamp');
+        timeEl.textContent = formatTimestamp(msg.timestamp);
+
+        msgEl.appendChild(timeEl);
+        messagesEl.appendChild(msgEl);
+      });
+      // Scroll to bottom
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    // Save messages to localStorage
+    function saveMessages() {
+      localStorage.setItem('messages', JSON.stringify(messages));
+    }
+
+    // Send a new message
+    function sendMessage() {
+      const text = input.value.trim();
+      if(text === '') return;
+      const message = {
+        text,
+        sent: true,
+        timestamp: new Date().toISOString()
+      };
+      messages.push(message);
+      saveMessages();
+      renderMessages();
+      input.value = '';
+      sendBtn.disabled = true;
+      input.focus();
+
+      // Simulated received response after short delay
+      setTimeout(() => {
+        const reply = {
+          text: generateReply(text),
+          sent: false,
+          timestamp: new Date().toISOString()
+        };
+        messages.push(reply);
+        saveMessages();
+        renderMessages();
+      }, 1000 + Math.random()*1000);
+    }
+
+    // Simple auto-reply generator
+    function generateReply(userText) {
+      const replies = [
+        "Thanks for your message!",
+        "I hear you.",
+        "That's interesting.",
+        "Can you tell me more?",
+        "I'm here to chat anytime.",
+        "Got it!",
+        "Sounds good to me.",
+        "👍",
+        "😊",
+        "I'm glad you shared that!"
+      ];
+      return replies[Math.floor(Math.random() * replies.length)];
+    }
+
+    // Event listeners
+    input.addEventListener('input', () => {
+      sendBtn.disabled = input.value.trim() === '';
+    });
+    input.addEventListener('keypress', e => {
+      if(e.key === 'Enter' && !sendBtn.disabled){
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+    sendBtn.addEventListener('click', sendMessage);
+
+    // Initialize app by rendering existing messages
+    renderMessages();
+    input.focus();
+  })();
+</script>
+</body>
+</html>
+
+```
+

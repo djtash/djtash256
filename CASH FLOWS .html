@@ -1,0 +1,425 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bar Cash Flow Manager (UGX)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
+  />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+    rel="stylesheet"
+  />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* For better table print in PDF */
+    .pdf-table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 10pt;
+    }
+    .pdf-table th, .pdf-table td {
+      border: 1px solid #444;
+      padding: 4px 6px;
+      text-align: left;
+    }
+    .pdf-table th {
+      background-color: #dbeafe;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+  <header class="bg-indigo-700 text-white p-4 shadow-md">
+    <div class="container mx-auto flex items-center justify-between">
+      <h1 class="text-2xl font-semibold flex items-center space-x-2">
+        <i class="fas fa-cash-register"></i>
+        <span>Bar Cash Flow Manager (UGX)</span>
+      </h1>
+      <button
+        id="sendReportBtn"
+        class="bg-green-500 hover:bg-green-600 transition rounded px-4 py-2 flex items-center space-x-2"
+      >
+        <i class="fas fa-file-pdf"></i>
+        <span>Send PDF to Finance</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="container mx-auto flex-grow p-4">
+    <section class="bg-white rounded-lg shadow p-6 max-w-4xl mx-auto">
+      <h2 class="text-xl font-semibold mb-4 text-indigo-700 flex items-center space-x-2">
+        <i class="fas fa-wallet"></i>
+        <span>Cash Flow Entries</span>
+      </h2>
+
+      <form id="cashFlowForm" class="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div>
+          <label for="date" class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+          <input
+            type="date"
+            id="date"
+            name="date"
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div>
+          <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <input
+            type="text"
+            id="description"
+            name="description"
+            placeholder="e.g. Sold drinks"
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div>
+          <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">Amount (UGX)</label>
+          <input
+            type="number"
+            id="amount"
+            name="amount"
+            placeholder="e.g. 50000"
+            required
+            min="0"
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div>
+          <label for="type" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+          <select
+            id="type"
+            name="type"
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="" disabled selected>Select type</option>
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+          </select>
+        </div>
+        <div class="md:col-span-4 flex justify-end">
+          <button
+            type="submit"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded px-6 py-2 flex items-center space-x-2"
+          >
+            <i class="fas fa-plus-circle"></i>
+            <span>Add Entry</span>
+          </button>
+        </div>
+      </form>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-indigo-100 text-indigo-700">
+              <th class="py-2 px-3 border border-indigo-200">Date</th>
+              <th class="py-2 px-3 border border-indigo-200">Description</th>
+              <th class="py-2 px-3 border border-indigo-200">Amount (UGX)</th>
+              <th class="py-2 px-3 border border-indigo-200">Type</th>
+              <th class="py-2 px-3 border border-indigo-200">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="entriesTableBody" class="bg-white divide-y divide-indigo-200">
+          </tbody>
+          <tfoot class="bg-indigo-50 font-semibold text-indigo-900">
+            <tr>
+              <td colspan="2" class="py-2 px-3 border border-indigo-200 text-right">Total Income:</td>
+              <td id="totalIncome" class="py-2 px-3 border border-indigo-200 text-green-600">UGX 0</td>
+              <td colspan="2" class="border border-indigo-200"></td>
+            </tr>
+            <tr>
+              <td colspan="2" class="py-2 px-3 border border-indigo-200 text-right">Total Expense:</td>
+              <td id="totalExpense" class="py-2 px-3 border border-indigo-200 text-red-600">UGX 0</td>
+              <td colspan="2" class="border border-indigo-200"></td>
+            </tr>
+            <tr class="text-lg font-bold bg-indigo-200">
+              <td colspan="2" class="py-2 px-3 border border-indigo-200 text-right">Net Cash Flow:</td>
+              <td id="netCashFlow" class="py-2 px-3 border border-indigo-200"></td>
+              <td colspan="2" class="border border-indigo-200"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bg-indigo-700 text-white p-4 text-center">
+    <p>© 2024 Bar Cash Flow Manager. All rights reserved.</p>
+  </footer>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    const form = document.getElementById('cashFlowForm');
+    const entriesTableBody = document.getElementById('entriesTableBody');
+    const totalIncomeEl = document.getElementById('totalIncome');
+    const totalExpenseEl = document.getElementById('totalExpense');
+    const netCashFlowEl = document.getElementById('netCashFlow');
+    const sendReportBtn = document.getElementById('sendReportBtn');
+
+    let entries = [];
+
+    function formatUGX(amount) {
+      return 'UGX ' + amount.toLocaleString('en-UG');
+    }
+
+    function updateTotals() {
+      const totalIncome = entries
+        .filter(e => e.type === 'income')
+        .reduce((sum, e) => sum + e.amount, 0);
+      const totalExpense = entries
+        .filter(e => e.type === 'expense')
+        .reduce((sum, e) => sum + e.amount, 0);
+      const netCashFlow = totalIncome - totalExpense;
+
+      totalIncomeEl.textContent = formatUGX(totalIncome);
+      totalExpenseEl.textContent = formatUGX(totalExpense);
+      netCashFlowEl.textContent = formatUGX(netCashFlow);
+      netCashFlowEl.classList.toggle('text-green-700', netCashFlow >= 0);
+      netCashFlowEl.classList.toggle('text-red-700', netCashFlow < 0);
+    }
+
+    function renderEntries() {
+      entriesTableBody.innerHTML = '';
+      entries.forEach((entry, index) => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-indigo-50';
+
+        const dateTd = document.createElement('td');
+        dateTd.className = 'py-2 px-3 border border-indigo-200';
+        dateTd.textContent = entry.date;
+        tr.appendChild(dateTd);
+
+        const descTd = document.createElement('td');
+        descTd.className = 'py-2 px-3 border border-indigo-200';
+        descTd.textContent = entry.description;
+        tr.appendChild(descTd);
+
+        const amountTd = document.createElement('td');
+        amountTd.className = 'py-2 px-3 border border-indigo-200 ' + (entry.type === 'income' ? 'text-green-600' : 'text-red-600');
+        amountTd.textContent = formatUGX(entry.amount);
+        tr.appendChild(amountTd);
+
+        const typeTd = document.createElement('td');
+        typeTd.className = 'py-2 px-3 border border-indigo-200 capitalize';
+        typeTd.textContent = entry.type;
+        tr.appendChild(typeTd);
+
+        const actionsTd = document.createElement('td');
+        actionsTd.className = 'py-2 px-3 border border-indigo-200 text-center space-x-2';
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'text-indigo-600 hover:text-indigo-900';
+        editBtn.title = 'Edit Entry';
+        editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+        editBtn.addEventListener('click', () => {
+          populateFormForEdit(index);
+        });
+        actionsTd.appendChild(editBtn);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'text-red-600 hover:text-red-900';
+        deleteBtn.title = 'Delete Entry';
+        deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+        deleteBtn.addEventListener('click', () => {
+          if (confirm('Are you sure you want to delete this entry?')) {
+            entries.splice(index, 1);
+            saveEntries();
+            renderEntries();
+            updateTotals();
+          }
+        });
+        actionsTd.appendChild(deleteBtn);
+
+        tr.appendChild(actionsTd);
+
+        entriesTableBody.appendChild(tr);
+      });
+    }
+
+    function saveEntries() {
+      localStorage.setItem('barCashFlowEntries', JSON.stringify(entries));
+    }
+
+    function loadEntries() {
+      const saved = localStorage.getItem('barCashFlowEntries');
+      if (saved) {
+        entries = JSON.parse(saved);
+      }
+    }
+
+    function clearForm() {
+      form.reset();
+      form.date.focus();
+      form.type.selectedIndex = 0;
+      editingIndex = null;
+      form.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-plus-circle"></i><span>Add Entry</span>';
+    }
+
+    let editingIndex = null;
+
+    function populateFormForEdit(index) {
+      const entry = entries[index];
+      form.date.value = entry.date;
+      form.description.value = entry.description;
+      form.amount.value = entry.amount;
+      form.type.value = entry.type;
+      editingIndex = index;
+      form.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-save"></i><span>Save Changes</span>';
+      form.date.focus();
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const date = form.date.value;
+      const description = form.description.value.trim();
+      const amount = Number(form.amount.value);
+      const type = form.type.value;
+
+      if (!date || !description || !amount || !type) {
+        alert('Please fill in all fields correctly.');
+        return;
+      }
+
+      if (editingIndex !== null) {
+        entries[editingIndex] = { date, description, amount, type };
+        editingIndex = null;
+      } else {
+        entries.push({ date, description, amount, type });
+      }
+
+      saveEntries();
+      renderEntries();
+      updateTotals();
+      clearForm();
+    });
+
+    function generatePDF() {
+      if (entries.length === 0) {
+        alert('No entries to generate PDF.');
+        return;
+      }
+
+      const doc = new jsPDF({
+        unit: 'pt',
+        format: 'a4',
+        putOnlyUsedFonts:true,
+        floatPrecision: 16
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 40;
+      let y = margin;
+
+      doc.setFontSize(18);
+      doc.setTextColor(40, 40, 40);
+      doc.text('Bar Cash Flow Report (UGX)', pageWidth / 2, y, { align: 'center' });
+      y += 30;
+
+      doc.setFontSize(12);
+      const today = new Date();
+      doc.text(`Generated on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`, pageWidth - margin, y, { align: 'right' });
+      y += 20;
+
+      // Table headers
+      const headers = ['Date', 'Description', 'Amount (UGX)', 'Type'];
+      const colWidths = [80, 220, 100, 80];
+      const startX = margin;
+
+      doc.setFillColor(219, 234, 254);
+      doc.setDrawColor(100);
+      doc.setLineWidth(0.5);
+      doc.setFont(undefined, 'bold');
+      let x = startX;
+      for (let i = 0; i < headers.length; i++) {
+        doc.rect(x, y, colWidths[i], 20, 'F');
+        doc.setTextColor(49, 79, 174);
+        doc.text(headers[i], x + 4, y + 14);
+        x += colWidths[i];
+      }
+      y += 20;
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(0);
+
+      // Table rows
+      entries.forEach((entry, idx) => {
+        x = startX;
+        if (y + 20 > doc.internal.pageSize.getHeight() - margin) {
+          doc.addPage();
+          y = margin;
+        }
+        doc.rect(x, y, colWidths[0], 20);
+        doc.text(entry.date, x + 4, y + 14);
+        x += colWidths[0];
+
+        doc.rect(x, y, colWidths[1], 20);
+        let desc = entry.description;
+        if (doc.getTextWidth(desc) > colWidths[1] - 8) {
+          // truncate with ellipsis
+          while (doc.getTextWidth(desc + '...') > colWidths[1] - 8 && desc.length > 0) {
+            desc = desc.slice(0, -1);
+          }
+          desc += '...';
+        }
+        doc.text(desc, x + 4, y + 14);
+        x += colWidths[1];
+
+        doc.rect(x, y, colWidths[2], 20);
+        doc.setTextColor(entry.type === 'income' ? 0, 128, 0 : 178, 34, 34);
+        doc.text(formatUGX(entry.amount), x + 4, y + 14);
+        doc.setTextColor(0);
+        x += colWidths[2];
+
+        doc.rect(x, y, colWidths[3], 20);
+        doc.text(entry.type.charAt(0).toUpperCase() + entry.type.slice(1), x + 4, y + 14);
+        y += 20;
+      });
+
+      y += 10;
+      if (y + 60 > doc.internal.pageSize.getHeight() - margin) {
+        doc.addPage();
+        y = margin;
+      }
+
+      // Totals
+      const totalIncome = entries
+        .filter(e => e.type === 'income')
+        .reduce((sum, e) => sum + e.amount, 0);
+      const totalExpense = entries
+        .filter(e => e.type === 'expense')
+        .reduce((sum, e) => sum + e.amount, 0);
+      const netCashFlow = totalIncome - totalExpense;
+
+      doc.setFont(undefined, 'bold');
+      doc.text('Summary:', startX, y);
+      y += 20;
+      doc.setFont(undefined, 'normal');
+      doc.text(`Total Income: ${formatUGX(totalIncome)}`, startX + 10, y);
+      y += 18;
+      doc.text(`Total Expense: ${formatUGX(totalExpense)}`, startX + 10, y);
+      y += 18;
+      doc.text(`Net Cash Flow: ${formatUGX(netCashFlow)}`, startX + 10, y);
+
+      // Save PDF and open mailto with attachment instructions
+      doc.save('Bar_Cash_Flow_Report_UGX.pdf');
+      alert('PDF generated and downloaded. Please attach the PDF to your email to the finance office.');
+    }
+
+    sendReportBtn.addEventListener('click', () => {
+      generatePDF();
+    });
+
+    // Initialize app
+    loadEntries();
+    renderEntries();
+    updateTotals();
+  </script>
+</body>
+</html>
